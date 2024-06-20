@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { FaSearch } from "react-icons/fa";
 
@@ -7,13 +7,34 @@ const Drugname = () => {
   const [searchText, setSearchText] = useState("");
   const [filteredRes, setFilteredRes] = useState([]);
   const [showResults, setShowResults] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+
+  useEffect(() => {
+    if (searchText) {
+      fetchSuggestions();
+    } else {
+      setSuggestions([]);
+    }
+  }, [searchText]);
+
+  const fetchSuggestions = async () => {
+    const url = `https://rxnav.nlm.nih.gov/REST/drugs.json?name=${encodeURIComponent(searchText)}`;
+    try {
+      const res = await axios.get(url);
+      const drugsData = res.data.drugGroup.conceptGroup || [];
+      const suggestionsList = drugsData.flatMap(group =>
+        (group.conceptProperties || []).map(property => property.name)
+      );
+      setSuggestions(suggestionsList);
+    } catch (error) {
+      console.error("Error fetching suggestions:", error);
+    }
+  };
 
   const loadData = async () => {
     const url = `https://rxnav.nlm.nih.gov/REST/drugs.json?name=${encodeURIComponent(searchText)}`;
     try {
       const res = await axios.get(url);
-      console.log(res);
-
       const drugsData = res.data.drugGroup.conceptGroup || [];
       setDrugs(drugsData);
       const filtered = drugsData.flatMap(group =>
@@ -43,6 +64,11 @@ const Drugname = () => {
     }
   };
 
+  const handleSuggestionClick = (suggestion) => {
+    setSearchText(suggestion);
+    loadData();
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
       <h1>SEARCH DRUGS</h1>
@@ -60,6 +86,15 @@ const Drugname = () => {
           onClick={handleSearch}
         />
       </div>
+      {suggestions.length > 0 && (
+        <ul style={{ listStyleType: "none", padding: 0, marginTop: "10px", width: "100%" }}>
+          {suggestions.map((suggestion, index) => (
+            <li key={index} style={{ cursor: "pointer", marginBottom: "5px" }} onClick={() => handleSuggestionClick(suggestion)}>
+              {suggestion}
+            </li>
+          ))}
+        </ul>
+      )}
       {showResults && (
         <div style={{ marginTop: "20px", width: "100%" }}>
           {filteredRes.length > 0 ? (
